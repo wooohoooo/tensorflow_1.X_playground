@@ -1,6 +1,7 @@
 from helpers import lazy_property
 
 import tensorflow as tf
+import numpy as np #for dropout
 
 
 
@@ -339,3 +340,107 @@ class EnsembleNetwork(object):
     def compute_error_vec(self, X, y):
         y_hat = self.predict(X)
         return y - y_hat
+    
+    
+    
+
+
+class DropoutNetwork(EnsembleNetwork):
+    def __init__(
+            self,
+            ds_graph,
+            num_neurons=[10, 5, 3],
+            num_features=1,
+            learning_rate=0.001,
+            activations=None,  #[tf.nn.tanh,tf.nn.relu,tf.sigmoid]
+            dropout_layers=None,  #[True,False,True]
+            initialisation_scheme=None,  #[tf.random_normal,tf.random_normal,tf.random_normal]
+            optimizer=None,  #defaults to GradiendDescentOptimizer,
+            num_epochs=None,  #defaults to 1,
+            seed=None,
+            adversarial=None,
+            initialisation_params=None,
+            l2=None,
+            l=None,
+    num_preds = None,
+    keep_prob = None):
+
+        self.num_preds = num_preds or 50
+        self.keep_prob = keep_prob or 0.85
+
+        super(DropoutNetwork, self).__init__(ds_graph,
+            num_neurons=num_neurons, num_features=num_features,
+            learning_rate=learning_rate, activations=activations,
+            dropout_layers=dropout_layers,
+            initialisation_scheme=initialisation_scheme, optimizer=optimizer,
+            num_epochs=num_epochs * 2, seed=seed, adversarial=adversarial,
+            l2=l2, l=l)
+
+    @lazy_property
+    def predict_graph(self):
+        #set layer_input to input
+        layer_input = self.X
+
+        #for each layer do
+        for i, w in enumerate(self.w_list):
+
+            #z = input x Weights
+            a = tf.matmul(layer_input, w, name='matmul_' + str(i))
+
+            if i == self.num_layers:  #This is new - Dropout!
+                a = tf.nn.dropout(a, self.keep_prob)  #0.9 = keep_prob
+
+            #z + bias
+            if i < self.num_layers:
+                bias = self.b_list[i]
+                a = tf.add(a, bias)
+
+            #a = sigma(z) if not last layer and regression
+            if i < self.num_layers:
+
+                a = self.activations[i](a)
+            #set layer input to a for next cycle
+
+            layer_input = a
+
+        return a
+
+
+    def predict(self, X):
+        X = self.check_input_dimensions(X)
+
+        pred_list = [
+            self.session.run(self.predict_graph,
+                             feed_dict={self.X: X}).squeeze()
+            for i in range(self.num_preds)
+        ]
+
+        stds = np.std(pred_list, 0)
+        means = np.mean(pred_list, 0)
+        #assert(np.isnan(stds) is False)
+        #assert(np.isnan(means) is False)
+        return_dict = {'stds': stds, 'means': means}
+#         if return_samples:
+#             return_dict['samples'] = pred_list
+            
+        return return_dict
+
+    def get_mean_and_std(self, X):
+        #compute tau http://mlg.eng.cam.ac.uk/yarin/blog_3d801aa532c1ce.html
+        num_datapoints = len(X)
+        length_scale = 1
+        tau = (length_scale**2 * self.keep_prob) / (2 * num_datapoints *
+                                                    self.l)
+
+        X = self.check_input_dimensions(X)
+
+        pred_list = [
+            self.session.run(self.predict_graph,
+                             feed_dict={self.X: X}).squeeze()
+            for i in range(15)
+        ]
+
+        pred_mean = np.mean(pred_list, axis=0)
+        pred_std = np.var(pred_list, axis=0)  #+ tau**-1
+        #pred_std[pred_std == 0] = 0.01
+        return pred_mean, pred_std
