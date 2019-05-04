@@ -339,3 +339,183 @@ class EnsembleNetwork(object):
     def compute_error_vec(self, X, y):
         y_hat = self.predict(X)
         return y - y_hat
+    
+    
+    
+    
+
+
+class NlpdNetwork(EnsembleNetwork):
+    #TODO: Move parameter initialisation into base so that changes there affect this Network, too
+    def __init__(
+            self,
+            ds_graph,
+            num_neurons=[10, 5, 5, 5, 5],
+            num_features=1,
+            learning_rate=0.001,
+            activations=None,  #[tf.nn.tanh,tf.nn.relu,tf.sigmoid]
+            dropout_layers=None,  #[True,False,True]
+            initialisation_scheme=None,  #[tf.random_normal,tf.random_normal,tf.random_normal]
+            optimizer=None,  #defaults to GradiendDescentOptimizer,
+            num_epochs=None,  #defaults to 1,
+            seed=None,
+            adversarial=None,
+            initialisation_params=None,
+            l2=None):
+
+        #necessary parameters
+        self.ds_graph = ds_graph
+        self.num_neurons = num_neurons
+        self.num_layers = len(num_neurons)
+        self.num_features = num_features
+        self.learning_rate = learning_rate or 0.001
+        self.adversarial = adversarial or False
+        self.initialisation_params = initialisation_params or {}
+        self.l2 = l2 or None
+
+        #optional parameters
+        self.optimizer = optimizer or tf.train.AdamOptimizer  #tf.train.GradientDescentOptimizer
+        self.activations = activations or [tf.nn.relu
+                                           ] * self.num_layers  #tanh,relu, 
+        self.initialisation_scheme = initialisation_scheme or tf.keras.initializers.he_normal  #
+        self.num_epochs = num_epochs * 2 or 20
+        self.seed = seed or None
+
+        #initialise graph
+        self.g = tf.Graph()
+        #build graph with self.graph as default so nodes get appended
+        with self.g.as_default():
+            dataset_graph = tf.import_graph_def(self.ds_graph, return_elements = ['X:0',"y:0"])
+            self.next = self.g.get_tensor_by_name('import/next:0')
+            self.init_network
+            self.predict_graph
+            self.p_graph
+            self.std_graph
+            self.error_graph
+            self.train_graph
+            
+            self.init = tf.global_variables_initializer()
+
+        #initialise session
+        self.session = tf.Session(graph=self.g)
+        #initialise global variables
+        self.session.run(self.init)
+
+    @lazy_property
+    def init_network(self):
+        self.min_std = tf.Variable(0.05)  #THIS IS NEW
+
+        if self.seed:
+            tf.set_random_seed(self.seed)
+        #inputs
+        self.X = self.next[0]
+        self.y = self.next[1]
+
+        #lists for storage
+        self.w_list = []
+        self.b_list = []
+
+        initialiser = self.initialisation_scheme(seed=self.seed,
+                                                 **self.initialisation_params)
+        #add input x first weights
+        self.w_list.append(
+            tf.Variable(
+                initialiser([self.num_features, self.num_neurons[0]]),
+                name='w_0'))  #first Matrix
+
+        #for each layer over 0 add a n x m matrix and a bias term
+        for i, num_neuron in enumerate(self.num_neurons[1:]):
+            n_inputs = self.num_neurons[i]  #for first hidden layer 3
+            n_outputs = self.num_neurons[i + 1]  #for first hidden layer 5
+
+            self.w_list.append(
+                tf.Variable(
+                    initialiser([n_inputs, n_outputs]), name='w_' + str(i)))
+            self.b_list.append(
+                tf.Variable(tf.ones(shape=[n_inputs]), name='b_' + str(i)))
+        #THis is new: Build two separate outputs for mean and std
+        self.p_w = tf.Variable(
+            initialiser([self.num_neurons[-1], 1]),
+            name='w_-1')  #this is a regression
+        self.std_w = tf.Variable(
+            initialiser([self.num_neurons[-1], 1]),
+            name='w_std')  #this is a regression
+
+        self.b_list.append(
+            tf.Variable(
+                tf.ones(shape=[self.num_neurons[-1]]), name='b_' + str(
+                    len(self.num_neurons) + 1)))
+
+    @lazy_property
+    def predict_graph_old(self):
+        #set layer_input to input
+        layer_input = self.X
+
+        #for each layer do
+        for i, w in enumerate(self.w_list):
+
+            #z = input x Weights
+            a = tf.matmul(layer_input, w, name='matmul_' + str(i))
+
+            #z + bias
+            #if i < self.num_layers:
+            bias = self.b_list[i]
+            a = tf.add(a, bias)
+
+            #a = sigma(z) if not last layer and regression
+            #if i < self.num_layers:    
+
+            a = self.activations[i](a)
+
+            #set layer input to a for next cycle
+            layer_input = a
+
+        return a
+
+    @lazy_property
+    def p_graph(self):
+        l_in = self.predict_graph
+        return tf.matmul(l_in, self.p_w)
+
+    @lazy_property
+    def std_graph(self):
+        l_in = self.predict_graph
+        return tf.nn.softplus(tf.matmul(l_in, self.std_w))
+
+    @lazy_property
+    def error_graph(self):
+
+        #y_hat is a // output of prediction graph
+        y_hat = self.p_graph
+        std_hat = tf.maximum(self.std_graph,
+                             self.min_std)  #tf.square(self.std_graph)
+
+        #first_term = tf.log(tf.div(std_hat, 2.0))
+        first_term = tf.log(std_hat)
+        second_term = tf.div(tf.square(tf.subtract(self.y, y_hat)), std_hat)
+        error = tf.add(tf.add(first_term, second_term), 1.0)
+
+        if self.l2:
+            # Loss function with L2 Regularization with beta=0.01
+            regularizers = tf.reduce_sum(
+                [tf.nn.l2_loss(weights) for weights in self.w_list])
+            error = tf.reduce_mean(error + 0.01 * regularizers)
+
+        return error
+
+    def predict_mean(self, X):
+        X = self.check_input_dimensions(X)
+
+        return self.session.run(self.p_graph, feed_dict={
+            self.X: X
+        })  # now calls p_graph instead of predict_graph
+
+    def predict_var(self, X):
+        X = self.check_input_dimensions(X)
+
+        return self.session.run(self.std_graph, feed_dict={self.X: X})
+
+    def predict(self, X):        
+        return_dict = {'stds': self.predict_var(X).flatten(), 'means':  self.predict_mean(X).flatten()}
+
+        return return_dict 
