@@ -187,7 +187,7 @@ class BootstrapThroughTimeBobStrap(VanillaEnsemble):
     #TODO: Early stopping if error does not decrease
 
     def __init__(self,gdef, num_features=None, num_epochs=10, num_estimators=3,
-                 model_name='copynetwork', seed=42, num_neurons=[10, 5, 3],
+                 model_name='copynetwork', seed=42, num_neurons=[10, 50, 20, 30, 10],
                  initialisation_scheme=None, activations=None,
                  estimator_stats = None):
         
