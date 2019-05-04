@@ -5,7 +5,7 @@ import os
 
 sys.path.append(os.path.dirname(os.getcwd()))
 
-from models.networks import EnsembleNetwork
+from models.networks import EnsembleNetwork, CopyNetwork
 
 class EnsembleParent(object):
     """
@@ -181,3 +181,196 @@ class OnlineBootstrapEnsemble(VanillaEnsemble):
 
         return return_dict
             
+
+class BootstrapThroughTimeBobStrap(VanillaEnsemble):
+    #TODO: decide if replace every epoch or meta-epoch
+    #TODO: Early stopping if error does not decrease
+
+    def __init__(self,gdef, num_features=None, num_epochs=10, num_estimators=3,
+                 model_name='copynetwork', seed=42, num_neurons=[10, 5, 3],
+                 initialisation_scheme=None, activations=None,
+                 estimator_stats = None):
+        
+        self.model_name = 'checkpoints/' + model_name
+        self.activations = activations
+        self.model = CopyNetwork(ds_graph=gdef,
+            seed=seed, initialisation_scheme=initialisation_scheme,
+            activations=activations, num_neurons=num_neurons,
+            num_epochs=num_epochs)
+        self.train_iteration = 0
+
+#         super(BootstrapThroughTimeBobStrap, self).__init__(self,gdef, estimator_stats = None,num_estimators=10,num_epochs=10,seed=10)
+        self.num_epochs = num_epochs
+        self.num_models = num_estimators
+        self.initialise_ensemble()
+
+    def initialise_ensemble(self):
+        """create list of checkpoint ensembles"""
+        name = self.model_name + 'checkpoint_' + str(self.train_iteration)
+        self.model.save(name)
+        self.checkpoints = [name]
+
+    def get_prediction_list(self, X):
+        prediction_list = []
+        for ckpt in self.checkpoints:
+            self.model.load(ckpt)
+            prediction_list.append(self.model.predict(X))
+
+        return prediction_list
+    
+    def get_prediction_list(self, X):
+        prediction_list = []
+        for ckpt in self.checkpoints:
+            self.model.load(ckpt)
+            prediction_list.append(self.model.predict(X))
+
+        return prediction_list
+    
+#     def predict(self, X):
+#         pred_list = self.get_prediction_list(X)
+#         self.model.load(self.checkpoints[-1])
+#         return self.model.predict(X)
+#         #return predictive_uncertainty
+        
+    def predict(self,X,return_samples=False):
+        pred_list = self.get_prediction_list(X)
+
+        stds = np.std(pred_list,0)
+        means = np.mean(pred_list,0)
+        
+        
+        return  {'stds':stds,'means':means}
+
+    def fit(self, epochs, burn_in=3):
+        """trains the most recent model in checkpoint list and replaces the oldest checkpoint if enough checkpoints exist"""
+        ####NEWWWWW
+        print('doing a burn in of {} epochs'.format(str(burn_in)))
+        if self.train_iteration == 0:
+            for i in range(burn_in):
+                self.model.load(self.checkpoints[-1])  #load most recent model
+                self.model.fit(epochs)
+                name = self.model_name + '_burn_in_model_{}'.format(
+                    str(burn_in))
+                self.model.save(name)
+                self.checkpoints = [name]
+                
+        self.train_iteration += 1
+        name = self.model_name + '_checkpoint_' + str(self.train_iteration)
+
+        self.model.load(self.checkpoints[-1])  #load most recent model
+#         #####OLDDDD
+        for i in range(epochs):
+
+            self.model.fit(epochs)  #train most recent model
+        self.model.save(name)  #save newest model as checkpoint
+        self.checkpoints.append(name)  #add newest checkpoint
+
+        if len(self.checkpoints
+            ) > self.num_models:  #if we reached max number of stored models
+                self.checkpoints.pop(0)  #delete oldest checkpoint
+
+
+class ForcedDiversityBootstrapThroughTime(BootstrapThroughTimeBobStrap):
+    # TODO: try out 'burn in' Phase.
+    def __init__(self, num_features=None, num_epochs=1, num_models=10,
+                 model_name='diversitycopynetwork', seed=42,
+                 num_neurons=[10, 5, 3], initialisation_scheme=None,
+                 activations=None):
+
+        super(ForcedDiversityBootstrapThroughTime, self).__init__(
+            num_features=None, num_epochs=num_epochs, num_models=num_models,
+            model_name='forceddiversitycopynetwork', seed=seed,
+            num_neurons=num_neurons,
+            initialisation_scheme=initialisation_scheme,
+            activations=activations)
+
+    def fit(self, X, y, X_test=None, y_test=None):
+        """trains the most recent model in checkpoint list and replaces the oldest checkpoint if enough checkpoints exist"""
+        for i in range(self.num_epochs):
+            self.train_iteration += 1
+            name = self.model_name + '_checkpoint_' + str(self.train_iteration)
+
+            self.model.load(self.checkpoints[-1])  #load most recent model
+            rsme_before = self.model.compute_rsme(X, y)
+            self.model.fit(X, y)  #train most recent model
+            rsme_after = self.model.compute_rsme(X, y)
+            if rsme_before > rsme_after:
+                self.model.save(name)  #save newest model as checkpoint
+                self.checkpoints.append(name)  #add newest checkpoint
+
+                if len(
+                        self.checkpoints
+                ) > self.num_models:  #if we reached max number of stored models
+                    self.checkpoints.pop(0)  #delete oldest checkpoint
+
+
+class ForcedDiversityBootstrapThroughTime2(BootstrapThroughTimeBobStrap):
+    def __init__(self, num_features=None, num_epochs=1, num_models=10,
+                 model_name='diversitycopynetwork', seed=42,
+                 num_neurons=[10, 5, 3], initialisation_scheme=None,
+                 activations=None):
+
+        super(ForcedDiversityBootstrapThroughTime2, self).__init__(
+            num_features=None, num_epochs=num_epochs, num_models=num_models,
+            model_name='forceddiversitycopynetwork', seed=seed,
+            num_neurons=num_neurons,
+            initialisation_scheme=initialisation_scheme,
+            activations=activations)
+
+    def fit(self, X, y, X_test=None, y_test=None):
+        """trains the most recent model in checkpoint list and replaces the oldest checkpoint if enough checkpoints exist"""
+        for i in range(self.num_epochs):
+            self.train_iteration += 1
+            name = self.model_name + '_checkpoint_' + str(self.train_iteration)
+
+            self.model.load(self.checkpoints[-1])  #load most recent model
+            error_vec_before = self.compute_error_vec(X, y)**2
+            self.model.fit(X, y)  #train most recent model
+            error_vec_after = self.model.compute_error_vec(X, y)**2
+
+            #maybe use self.compute_error!!!!
+
+            kl_divergence = scipy.stats.entropy(error_vec_before,
+                                                error_vec_after)
+            print(kl_divergence)
+
+            if np.round(kl_divergence, decimals=1) <= 0:
+                continue
+
+            self.model.save(name)  #save newest model as checkpoint
+            self.checkpoints.append(name)  #add newest checkpoint
+
+            if len(
+                    self.checkpoints
+            ) > self.num_models:  #if we reached max number of stored models
+                self.checkpoints.pop(0)  #delete oldest checkpoint
+
+
+class ForcedDiversityBootstrapThroughTime3(
+        ForcedDiversityBootstrapThroughTime):
+    """implements only getting the std from the ensemble, pred_mean is just last prediction"""
+
+    def __init__(self, num_features=None, num_epochs=1, num_models=10,
+                 model_name='diversitycopynetwork', seed=42,
+                 num_neurons=[10, 5, 3], initialisation_scheme=None,
+                 activations=None):
+
+        super(ForcedDiversityBootstrapThroughTime3, self).__init__(
+            num_features=None, num_epochs=num_epochs, num_models=num_models,
+            model_name='forceddiversitycopynetwork', seed=seed,
+            num_neurons=num_neurons,
+            initialisation_scheme=initialisation_scheme,
+            activations=activations)
+
+    def predict(self, X):
+        self.model.load(self.checkpoints[-1])
+        return self.model.predict(X)
+        #return predictive_uncertainty
+
+    def get_mean_and_std(self, X):
+        pred_list = self.get_prediction_list(X)
+        self.model.load(self.checkpoints[-1])
+        pred_mean = self.model.predict(X)
+        #prediction_list.append(self.model.predict(X))
+        pred_std = np.std(pred_list, axis=0)
+        return pred_mean, pred_std

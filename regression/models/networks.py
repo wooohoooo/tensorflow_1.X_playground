@@ -339,3 +339,79 @@ class EnsembleNetwork(object):
     def compute_error_vec(self, X, y):
         y_hat = self.predict(X)
         return y - y_hat
+    
+    
+    
+    
+    
+class CopyNetwork(EnsembleNetwork):
+    def __init__(
+            self,
+            ds_graph,
+            num_neurons=[10, 10, 10],
+            num_features=1,
+            learning_rate=0.001,
+            activations=None,  #[tf.nn.tanh,tf.nn.relu,tf.sigmoid]
+            dropout_layers=None,  #[True,False,True]
+            initialisation_scheme=None,  #[tf.random_normal,tf.random_normal,tf.random_normal]
+            optimizer=None,  #defaults to GradiendDescentOptimizer,
+            num_epochs=None,  #defaults to 1,
+            seed=None,
+            adversarial=None, ):
+
+        super(CopyNetwork, self).__init__(ds_graph,
+            num_neurons, num_features, learning_rate, activations,
+            dropout_layers, initialisation_scheme, optimizer, num_epochs, seed,
+            adversarial)
+
+        self.save_names = []
+
+        
+
+    @lazy_property
+    def initialise_graph(self):
+        #initialise graph
+        self.g = tf.Graph()
+        #build graph with self.graph as default so nodes get appended
+        with self.g.as_default():
+            dataset_graph = tf.import_graph_def(self.ds_graph, return_elements = ['X:0',"y:0"])
+            self.next = self.g.get_tensor_by_name('import/next:0')
+            self.init_network
+            self.predict_graph
+            self.error_graph
+            self.train_graph
+            self.init = tf.global_variables_initializer()
+            self.saver = tf.train.Saver(
+                max_to_keep=None
+            )  #make sure none of the models are discarded without explicitly wanting to
+
+        
+#     @lazy_property
+#     def initialise_graph(self):
+#         #initialise graph
+#         self.g = tf.Graph()
+#         #build graph with self.graph as default so nodes get appended
+#         with self.g.as_default():
+#             self.init_network
+#             self.predict_graph
+#             self.error_graph
+#             self.train_graph
+#             self.init = tf.global_variables_initializer()
+#             self.saver = tf.train.Saver(
+#                 max_to_keep=None
+#             )  #make sure none of the models are discarded without explicitly wanting to
+
+    def save(self, name='testname'):
+        #with self.session as sess:
+
+        #self.session.run(self.saver.save(self.session, name))
+        self.saver.save(self.session, name)
+
+        self.save_names.append(name)
+
+    def load(self, name='testname'):
+
+        self.saver.restore(self.session, name)
+
+        #new_saver = tf.train.import_meta_graph(name)
+        #new_saver.restore(self.session, tf.train.latest_checkpoint('./'))
