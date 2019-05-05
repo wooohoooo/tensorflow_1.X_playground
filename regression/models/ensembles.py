@@ -146,9 +146,121 @@ class OnlineBootstrapEnsemble(VanillaEnsemble):
                 estimator.fit(epochs*2)#(X,y)
 
 
-            
+    
+class UncertaintyModelEnsemble(VanillaEnsemble):
+    """
+    https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/05_Ensemble_Learning.ipynb
+    """
+    def __init__(self,gdef, estimator_stats = None,num_estimators=10,num_epochs=10,seed=10):
+        
+#         default_ensemble = [{
+#             'ds_graph' : gdef,
+#             'num_neurons': [10, 5, 5, 2],
+#             'num_epochs': num_epochs,
+#             'seed':42
+#         },
+#             {
+#             'ds_graph' : gdef,
+#             'num_neurons': [10, 10, 5],
+#             'num_epochs': num_epochs,
+#             'seed': 43
+#         }, {
+#             'ds_graph' : gdef,
+#             'num_neurons': [5, 15, 5],
+#             'num_epochs': num_epochs,
+#             'seed': 44
+#         }
+#         ]
 
-class UncertaintyModelEnsemble(OnlineBootstrapEnsemble):
+
+        self.estimator_stats = estimator_stats or default_ensemble
+        self.estimator_list = [
+            DropoutNetwork(**x) for x in self.estimator_stats
+        ]
+
+    def predict(self,X,return_samples=False):
+        mean_list = []
+        std_list = []
+        for estimator in self.estimator_list:
+            prediction_dict = estimator.predict(X)
+            
+            mean_list.append(prediction_dict['means'])
+            std_list.append(prediction_dict['stds'])
+            
+        stds = np.mean(std_list,0)
+        #stds = std_list[0]
+        means = np.mean(mean_list,0)
+        #means = mean_list[0]
+        
+        
+        return_dict = {'stds':stds,'means':means}
+        if return_samples:
+            return_dict['samples'] = pred_list
+        #system('say prediction complete')
+
+        return return_dict
+    
+    
+    
+
+class UncertaintyModelBootstrapEnsemble(OnlineBootstrapEnsemble):
+    """
+    https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/05_Ensemble_Learning.ipynb
+    """
+    def __init__(self,gdef, estimator_stats = None,num_estimators=10,num_epochs=10,seed=10):
+        
+#         default_ensemble = [{
+#             'ds_graph' : gdef,
+#             'num_neurons': [10, 5, 5, 2],
+#             'num_epochs': num_epochs,
+#             'seed':42
+#         },
+#             {
+#             'ds_graph' : gdef,
+#             'num_neurons': [10, 10, 5],
+#             'num_epochs': num_epochs,
+#             'seed': 43
+#         }, {
+#             'ds_graph' : gdef,
+#             'num_neurons': [5, 15, 5],
+#             'num_epochs': num_epochs,
+#             'seed': 44
+#         }
+#         ]
+
+
+        self.estimator_stats = estimator_stats or default_ensemble
+        self.estimator_list = [
+            DropoutNetwork(**x) for x in self.estimator_stats
+        ]
+
+    def predict(self,X,return_samples=False):
+        mean_list = []
+        std_list = []
+        for estimator in self.estimator_list:
+            prediction_dict = estimator.predict(X)
+            
+            mean_list.append(prediction_dict['means'])
+            std_list.append(prediction_dict['stds'])
+            
+        stds = np.mean(std_list,0)
+        #stds = std_list[0]
+        means = np.mean(mean_list,0)
+        #means = mean_list[0]
+        
+        
+        return_dict = {'stds':stds,'means':means}
+        if return_samples:
+            return_dict['samples'] = pred_list
+        #system('say prediction complete')
+
+        return return_dict
+    
+    
+    
+        
+
+class UncertaintyModelBootstrapEnsemble(OnlineBootstrapEnsemble):
     """
     https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/05_Ensemble_Learning.ipynb
     """
