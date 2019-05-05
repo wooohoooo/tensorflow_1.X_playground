@@ -63,17 +63,17 @@ class VanillaEnsemble(EnsembleParent):
     def __init__(self,ds_graph = None, estimator_stats=None, num_epochs=10):
 
         default_ensemble = [{
-            'ds_graph' : gdef,
+            'ds_graph' : ds_graph,
             'num_neurons': [10, 50, 20],
             'num_epochs': num_epochs,
             'seed':42
         }, {
-            'ds_graph' : gdef,
+            'ds_graph' : ds_graph,
             'num_neurons': [100, 10],
             'num_epochs': num_epochs,
             'seed': 43
         }, {
-            'ds_graph' : gdef,
+            'ds_graph' : ds_graph,
             'num_neurons': [5, 150],
             'num_epochs': num_epochs,
             'seed': 44
@@ -96,7 +96,7 @@ class VanillaEnsemble(EnsembleParent):
         for estimator in self.estimator_list:
           estimator.train(X,y)
 
-    def predict(self, X, return_samples=False):
+    def predict_old(self, X, return_samples=False):
         pred_list = []
         for estimator in self.estimator_list:
             prediction = estimator.predict(X)
@@ -113,57 +113,7 @@ class VanillaEnsemble(EnsembleParent):
         #system('say prediction complete')
 
         return return_dict
-
-
-class OnlineBootstrapEnsemble(VanillaEnsemble):
-    """
-    https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/05_Ensemble_Learning.ipynb
-    """
-    def __init__(self,gdef, estimator_stats = None,num_estimators=10,num_epochs=10,seed=10):
-        
-        default_ensemble = [{
-            'ds_graph' : gdef,
-            'num_neurons': [10, 5, 5, 2],
-            'num_epochs': num_epochs,
-            'seed':42
-        },
-            {
-            'ds_graph' : gdef,
-            'num_neurons': [10, 10, 5],
-            'num_epochs': num_epochs,
-            'seed': 43
-        }, {
-            'ds_graph' : gdef,
-            'num_neurons': [5, 15, 5],
-            'num_epochs': num_epochs,
-            'seed': 44
-        }
-        ]
-
-        self.estimator_stats = estimator_stats or default_ensemble
-        self.estimator_list = [
-            EnsembleNetwork(**x) for x in self.estimator_stats
-        ]
-        
-
-    def fit(self, epochs = 10):
-      for i in range(epochs*2): # only training in half of the cases
-        for estimator in self.estimator_list:
-          if np.random.random() > 0.5:
-            #estimator.train_and_evaluate(X, y,shuffle=False)
-              estimator.fit(epochs)#(X,y)
-        #system('say training  complete')
-
-    def train(self,X,y,epochs = 10):
-      for epoch in range(epochs*2):
-        
-        for estimator in self.estimator_list:
-          #mask = np.random.choice([0,1], size= len(y)).astype(bool)
-          #X = X[mask]
-          #y = y[mask]
-          estimator.train(X,y)
-
-            
+    
     def predict(self,X,return_samples=False):
         pred_list = []
         for estimator in self.estimator_list:
@@ -181,7 +131,24 @@ class OnlineBootstrapEnsemble(VanillaEnsemble):
 
         return return_dict
             
-class UncertaintyModelEnsemble(VanillaEnsemble):
+
+class OnlineBootstrapEnsemble(VanillaEnsemble):
+    """
+    https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/05_Ensemble_Learning.ipynb
+    """
+
+    def fit(self, epochs = 10):
+      for i in range(epochs*2): # only training in half of the cases
+        for estimator in self.estimator_list:
+          if np.random.random() > 0.5:
+            #estimator.train_and_evaluate(X, y,shuffle=False)
+              estimator.fit(epochs)#(X,y)
+        #system('say training  complete')
+
+
+            
+
+class UncertaintyModelEnsemble(OnlineBootstrapEnsemble):
     """
     https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/05_Ensemble_Learning.ipynb
     """
