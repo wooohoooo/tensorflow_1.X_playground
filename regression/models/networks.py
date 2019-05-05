@@ -171,85 +171,11 @@ class EnsembleNetwork(object):
 
         return optimizer.minimize(error)
 
-    def train_offline(self, X, y):
-        for epoch in range(self.num_epochs):
 
-            self.session.run(self.train_graph,
-                             feed_dict={self.X: X,
-                                        self.y: y})
-
-    def fit(self, X, y, shuffle=True, online=True):
-        #print('X is {}'.format(X[:10]))
-
-        #if shuffle:
-
-        if online:
-            for epoch in range(self.num_epochs):
-                if shuffle:
-                    X, y, _ = self.shuffle_data(X, y)
-                X = self.check_input_dimensions(X)
-                y = self.check_input_dimensions(y)
-                self.train_one_epoch(X, y, shuffle)
-        else:
-            if shuffle:
-                X, y, _ = self.shuffle_data(X, y)
-            X = self.check_input_dimensions(X)
-            y = self.check_input_dimensions(y)
-            self.train_offline(X, y)
-            
-            
     def fit(self,epochs):
-      for epoch in range(epochs):
-        self.session.run(self.train_graph)
-        
-
-    def train_one_epoch(self, epoch_X, epoch_y, shuffle=True):
-
-        if shuffle == True:
-            epoch_X, epoch_y, _ = self.shuffle_data(
-                #np.squeeze(epoch_X), np.squeeze(epoch_y))
-                epoch_X,
-                epoch_y)
-        #print(epoch_X[:10])
-        epoch_X = self.check_input_dimensions(epoch_X)
-        epoch_y = self.check_input_dimensions(epoch_y)
-        for batch_X, batch_y in zip(epoch_X, epoch_y):
-            self.train_one(batch_X, batch_y)
-            if self.adversarial:
-                self.train_one(batch_X + 0.05, batch_y)
-                self.train_one(batch_X - 0.05, batch_y)
-
-    def train_one(self, batch_X, batch_y):
-        batch_X = self.check_input_dimensions(batch_X)
-        batch_y = self.check_input_dimensions(batch_y)
-        batch_X = np.array(batch_X).T
-
-        batch_X, _, batch_y, _ = train_test_split(
-            batch_X, batch_y, test_size=0.00, random_state=self.seed)
-
-        #print('what')
-        #print('X size: {}'.format(batch_X.shape))
-        #print('y size: {}'.format(batch_y.shape))
-        self.session.run(self.train_graph,
-                         feed_dict={self.X: batch_X,
-                                    self.y: batch_y})
-
-    def train_and_evaluate(self, X, y, shuffle=False):
-        errors = []
-        for epoch in range(self.num_epochs):
-
-            #self.session.run(self.train_graph,
-            #                 feed_dict={self.X: X,
-            #                            self.y: y})
-            self.train_one_epoch(X, y, shuffle)
-
-            errors += list(np.sqrt((y - self.predict(X))**2))
-
-            #self.session.run(self.predict_graph,
-            #                          feed_dict={self.X: X,
-            #                                     self.y: y}))**2))
-
-        return errors
+        for epoch in range(epochs):
+            self.session.run(self.train_graph)
+   
 
     def predict(self, X):
         X = self.check_input_dimensions(X)
