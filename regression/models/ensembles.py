@@ -7,6 +7,8 @@ sys.path.append(os.path.dirname(os.getcwd()))
 
 from models.networks import EnsembleNetwork, DropoutNetwork
 
+
+
 class EnsembleParent(object):
     """
     https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/05_Ensemble_Learning.ipynb
@@ -61,6 +63,7 @@ class VanillaEnsemble(EnsembleParent):
     """
 
     def __init__(self,ds_graph = None, estimator_stats=None, num_epochs=10):
+
 
         default_ensemble = [{
             'ds_graph' : ds_graph,
@@ -138,12 +141,9 @@ class OnlineBootstrapEnsemble(VanillaEnsemble):
     """
 
     def fit(self, epochs = 10):
-      for i in range(epochs*2): # only training in half of the cases
         for estimator in self.estimator_list:
-          if np.random.random() > 0.5:
-            #estimator.train_and_evaluate(X, y,shuffle=False)
-              estimator.fit(epochs)#(X,y)
-        #system('say training  complete')
+            if np.random.random() > 0.5:
+                estimator.fit(epochs*2)#(X,y)
 
 
             
@@ -154,24 +154,24 @@ class UncertaintyModelEnsemble(OnlineBootstrapEnsemble):
     """
     def __init__(self,gdef, estimator_stats = None,num_estimators=10,num_epochs=10,seed=10):
         
-        default_ensemble = [{
-            'ds_graph' : gdef,
-            'num_neurons': [10, 5, 5, 2],
-            'num_epochs': num_epochs,
-            'seed':42
-        },
-            {
-            'ds_graph' : gdef,
-            'num_neurons': [10, 10, 5],
-            'num_epochs': num_epochs,
-            'seed': 43
-        }, {
-            'ds_graph' : gdef,
-            'num_neurons': [5, 15, 5],
-            'num_epochs': num_epochs,
-            'seed': 44
-        }
-        ]
+#         default_ensemble = [{
+#             'ds_graph' : gdef,
+#             'num_neurons': [10, 5, 5, 2],
+#             'num_epochs': num_epochs,
+#             'seed':42
+#         },
+#             {
+#             'ds_graph' : gdef,
+#             'num_neurons': [10, 10, 5],
+#             'num_epochs': num_epochs,
+#             'seed': 43
+#         }, {
+#             'ds_graph' : gdef,
+#             'num_neurons': [5, 15, 5],
+#             'num_epochs': num_epochs,
+#             'seed': 44
+#         }
+#         ]
 
 
         self.estimator_stats = estimator_stats or default_ensemble
