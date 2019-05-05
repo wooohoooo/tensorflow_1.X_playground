@@ -3,9 +3,11 @@ import tensorflow as tf
 
 class ToyDataset():
     """Toy Dataset generator that can provide numpy arrays, TF datasets or the graph of a tf dataset"""
-    def __init__(self,datalen,shuffle):
+    def __init__(self,datalen,shuffle, noise_level = 0.3):
         self.shuffle = shuffle
         self.datalen = datalen
+        self.noise_level = noise_level
+        
         self.X, self.y = self.generate_data()
         self.tf_dataset = self.generate_tf_dataset()
         self.iterator = self.generate_tf_dataset_iterator()
@@ -44,7 +46,7 @@ class ToyDataset():
 
         freq1 = 0.1
         freq2 = 0.0375
-        noise = [np.random.random() * 0.1 for i in range(self.datalen)]
+        noise = [np.random.random() * self.noise_level for i in range(self.datalen)]
         y1 = np.sin(X * freq1) + noise
         y2 = np.sin(X * freq2) + noise
         y = y1 + y2

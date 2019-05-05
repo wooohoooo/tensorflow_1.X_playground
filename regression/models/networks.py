@@ -377,7 +377,7 @@ class DropoutNetwork(EnsembleNetwork):
             l2=l2, l=l)
 
     @lazy_property
-    def predict_graph(self):
+    def predict_graph_old(self):
         #set layer_input to input
         layer_input = self.X
 
@@ -424,6 +424,36 @@ class DropoutNetwork(EnsembleNetwork):
 #             return_dict['samples'] = pred_list
             
         return return_dict
+    
+    @lazy_property
+    def predict_graph(self):
+        #set layer_input to input
+        layer_input = self.X
+
+        #for each layer do
+        for i, w in enumerate(self.w_list):
+
+            #z = input x Weights
+            a = tf.matmul(layer_input, w, name='matmul_' + str(i))
+            
+            if i == self.num_layers:  #This is new - Dropout!
+                a = tf.nn.dropout(a, self.keep_prob)  #0.9 = keep_prob
+
+            #z + bias
+            if i < self.num_layers:
+            #if i > 0:
+              bias = self.b_list[i]
+              a = tf.add(a, bias)
+
+            #a = sigma(z) if not last layer and regression
+            if i < self.num_layers:
+
+                a = self.activations[i](a)
+            #set layer input to a for next cycle
+            layer_input = a
+
+        return a
+
 
     def get_mean_and_std(self, X):
         #compute tau http://mlg.eng.cam.ac.uk/yarin/blog_3d801aa532c1ce.html
