@@ -187,7 +187,7 @@ class UncertaintyModelEnsemble(VanillaEnsemble):
             mean_list.append(prediction_dict['means'])
             std_list.append(prediction_dict['stds'])
             
-        stds = np.mean(std_list,0)
+        stds = np.mean([np.mean(std_list,0), np.std(mean_list,0)],0)
         #stds = std_list[0]
         means = np.mean(mean_list,0)
         #means = mean_list[0]

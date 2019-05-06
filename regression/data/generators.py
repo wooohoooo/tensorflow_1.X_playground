@@ -17,11 +17,11 @@ class ToyDataset():
         Otherwise we run into some tensorflow issues that I am too lazy to check out right now"""
         return self.generate_tf_dataset_iterator_graph()
     
-    def generate_data_alternative(self) -> np.array:
+    def generate_data(self) -> np.array:
         """legacy, ignore"""
 
 
-        X = np.linspace(0,50,datalen)
+        X = np.linspace(0,50,self.datalen)
 
         noise = [np.random.random() * 0.3 for i in range(self.datalen)]
 
@@ -32,12 +32,11 @@ class ToyDataset():
         X, y = np.expand_dims(X.astype(np.float32),1), np.expand_dims(y.astype(np.float32),1)
 
 
-        plt.plot(X,y)
+        return X,y
 
 
 
-
-    def generate_data(self) -> np.array:
+    def generate_data_(self) -> np.array:
         """returns numpy arrays X and y that can be used as basis for regression problem"""
         
         #X = np.arange(0, self.datalen)
