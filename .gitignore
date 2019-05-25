@@ -105,3 +105,7 @@ venv.bak/
 *.meta
 *.index
 *.data-00000-of-00001
+*.gz
+*.png
+*.gif
+*.pkl
